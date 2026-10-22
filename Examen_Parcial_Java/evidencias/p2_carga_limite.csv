@@ -1,0 +1,4 @@
+nodo,ip,capacidad,disponible_bytes,registros,particion_bytes,procesamiento_ns
+nodo1,127.0.0.1,4,1048576,6701,319355,313409900
+nodo3,127.0.0.1,1,16777216,31099,1517895,759094600
+nodo2,127.0.0.1,2,33554432,62200,3031377,773299700
