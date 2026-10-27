@@ -42,7 +42,7 @@ La generación de entradas, cuando se solicite, escribe ambas partes con encabez
 
 Las operaciones matemáticas se realizan en `double`, acumulan de izquierda a derecha y en orden ascendente de `instante`. No se reordena la entrada ni se usan agregaciones paralelas. Cada operación verifica que sus resultados intermedios necesarios y resultados finales sean finitos. Un overflow, una división inválida, una raíz inválida o cualquier resultado no finito es error de nodo; nunca se escribe `NaN` ni infinito.
 
-Los resultados numéricos de D–H se formatean con exactamente seis cifras decimales, redondeo `HALF_UP` y convenciones independientes de la región (punto decimal, sin separadores de millares ni notación exponencial). El formato se aplica al valor `double` calculado, convertido a su representación decimal canónica antes de redondear. Si el texto resultante es `-0.000000`, se escribe `0.000000`. Los enteros de conteo se escriben sin parte decimal. El redondeo es solo de presentación; nunca reemplaza valores internos usados por cálculos o clasificación. A, B y C copian los cuatro tokens decimales de entrada literalmente y mantienen intactos los valores de las observaciones; solo se normalizan los terminadores de línea a LF. Esto evita cuantizar la entrada antes del análisis.
+Los resultados numéricos de D–H se formatean con exactamente seis cifras decimales y convenciones independientes de la región (punto decimal, sin separadores de millares ni notación exponencial). Para cada valor finito `valor`, el procedimiento obligatorio es `BigDecimal.valueOf(valor).setScale(6, RoundingMode.HALF_UP).toPlainString()`. No se permite convertir con `new BigDecimal(double)`. Si el texto resultante es `-0.000000`, se escribe `0.000000`. Los enteros de conteo se escriben sin parte decimal. El redondeo es solo de presentación; nunca reemplaza valores internos usados por cálculos o clasificación. A, B y C copian los cuatro tokens decimales de entrada literalmente y mantienen intactos los valores de las observaciones; solo se normalizan los terminadores de línea a LF. Esto evita cuantizar la entrada antes del análisis.
 
 La misma entrada, orden y versión de este contrato producen los mismos archivos deterministas. La comparación no depende de fecha, nombres de hilo ni tiempos.
 
@@ -69,7 +69,7 @@ Los nombres de las variables y su orden canónico son `temperatura`, `humedad`, 
 
 | Entradas | Operación | Salida | Dependencias | Error | Éxito |
 |---|---|---|---|---|---|
-| `C.csv` | Calcula las estadísticas indicadas abajo para cada una de las cuatro variables. | `D.csv` | C | Error al leer C, `N < 3`, o resultado intermedio/final no finito. | Hay una fila por variable, con conteo `N` y métricas válidas. |
+| `C.csv` | Calcula las estadísticas indicadas abajo para cada una de las cuatro variables. | `D.csv` y resultado interno inmutable `ResultadoD` | C | Error al leer C, `N < 3`, o resultado intermedio/final no finito. | Publicó D.csv completo y, solo después de publicarlo exitosamente, hizo disponible `ResultadoD` para F. |
 
 Para una variable `X` con valores `x₁,…,xₙ`, `N` observaciones y media `μX`:
 
@@ -81,6 +81,8 @@ desviación         = sqrt(SXX / N)
 ```
 
 La desviación es poblacional, no muestral. `SXX` es la suma de desviaciones cuadráticas, no la varianza. Una variable constante produce `SXX = 0` y desviación `0`; esto no es error para D.
+
+Además de D.csv, D produce un valor inmutable y limitado a la ejecución actual, `ResultadoD`, con `N`, la huella SHA-256 de los bytes exactos de `C.csv` leídos y, en orden canónico, los cuatro pares `(media, SXX)` como `double` sin redondear. No se almacena en archivo ni en estado estático/global. D guarda la referencia en el slot `resultadoD` del contexto de esa ejecución únicamente después de cerrar y publicar D.csv con éxito. Si D falla, el slot queda vacío y `ResultadoD` no existe para sus sucesores.
 
 Cabecera exacta y orden de filas:
 
@@ -96,7 +98,7 @@ demanda,...,...,...,...
 
 | Entradas | Operación | Salida | Dependencias | Error | Éxito |
 |---|---|---|---|---|---|
-| `C.csv` | Calcula una pendiente de mínimos cuadrados ordinarios de cada variable respecto de `instante`. | `E.csv` | C | Error al leer C o resultado no finito. | Presenta cuatro pendientes en orden canónico. |
+| `C.csv` | Calcula una pendiente de mínimos cuadrados ordinarios de cada variable respecto de `instante`. | `E.csv` y resultado interno inmutable `ResultadoE` | C | Error al leer C o resultado no finito. | Publicó E.csv completo y, solo después de publicarlo exitosamente, hizo disponible `ResultadoE` para G. |
 
 Para instantes `tᵢ` y valores `xᵢ`, `t̄ = (Σtᵢ)/N`, `μX = (Σxᵢ)/N`:
 
@@ -118,7 +120,7 @@ demanda,...
 
 | Entradas | Operación | Salida | Dependencias | Error | Éxito |
 |---|---|---|---|---|---|
-| `C.csv`, `D.csv` | Calcula correlaciones de Pearson centradas para los seis pares únicos, usando C para los productos cruzados y D para medias y sumas de cuadrados. Verifica que las cuatro filas de D correspondan a las variables y al mismo `N` de C. | `F.csv` | D (y C) | Entradas incompatibles, valor no finito o correlación materialmente fuera de rango. Varianza nula no es error: genera `NO_DEFINIDA`. | Publicó exactamente seis pares en el orden fijado. |
+| `C.csv`, `D.csv`, `ResultadoD` de la misma ejecución | Calcula correlaciones de Pearson centradas para los seis pares únicos. Calcula `SXY` recorriendo C en orden y usa los valores internos sin redondear de `ResultadoD` para medias, `SXX` y `SYY`. | `F.csv` | D (y C) | Entradas incompatibles, huella de C distinta, ausencia de `ResultadoD`, valor no finito o correlación materialmente fuera de rango. Varianza nula no es error: genera `NO_DEFINIDA`. | Validó D.csv y que `ResultadoD` corresponda a esta ejecución y al mismo C.csv; publicó exactamente seis pares en el orden fijado. |
 
 Para las variables `X`, `Y`:
 
@@ -129,7 +131,7 @@ SYY = Σ[i=1..N] (yᵢ − μY)²
 r(X,Y) = SXY / sqrt(SXX * SYY)
 ```
 
-F lee D y comprueba que su esquema, cuatro variables y conteo correspondan a C; para evitar que el redondeo de presentación altere la correlación, calcula las medias y sumas de cuadrados con precisión interna directamente de los valores de C. Si `SXX = 0` o `SYY = 0`, se escribe exactamente `NO_DEFINIDA`. En otro caso, si el cálculo de `r` queda fuera de `[-1,1]` por no más de `1e-12`, se limita al extremo más cercano del intervalo. Si excede ese margen, el nodo falla; no se oculta el error mediante recorte. Cabecera y orden obligatorio (sin pares invertidos ni duplicados):
+F valida la cabecera, el orden de variables, cardinalidad, conteos y las representaciones de seis decimales de media y suma cuadrática de D.csv frente a C y `ResultadoD`. También compara la huella SHA-256 de C.csv con la guardada en `ResultadoD`; una diferencia es error. Para el cálculo usa las medias y sumas de cuadrados no redondeadas de `ResultadoD`, y calcula `SXY` recorriendo C. Si `SXX = 0` o `SYY = 0`, se escribe exactamente `NO_DEFINIDA`. En otro caso, si el cálculo de `r` queda fuera de `[-1,1]` por no más de `1e-12`, se limita al extremo más cercano del intervalo. Si excede ese margen, el nodo falla; no se oculta el error mediante recorte. Cabecera y orden obligatorio (sin pares invertidos ni duplicados):
 
 ```csv
 variable_1,variable_2,pearson
@@ -147,7 +149,9 @@ consumo_energia,demanda,...
 |---|---|---|---|---|---|
 | `E.csv` | Clasifica cada pendiente de E con los límites exactos de abajo. | `G.csv` | E | E inválido, incompleto o con pendiente no finita. | Publicó cuatro filas en el orden canónico. |
 
-La categoría se determina con la pendiente interna sin redondear. Como E.csv presenta solo seis decimales, E conserva sus cuatro valores `double` sin redondear en el resultado interno de esa tarea y G los consume tras la dependencia E→G; G lee E.csv para validar filas y escribir la columna pendiente. Este paso de valores entre las tareas existentes no crea un nodo, archivo, evento, dependencia ni servicio adicional.
+La categoría se determina con la pendiente interna sin redondear. E produce `ResultadoE`, un valor inmutable, limitado al contexto de la ejecución actual, que contiene las cuatro pendientes `double` sin redondear en orden canónico y la huella SHA-256 de los bytes exactos de C.csv que E leyó. No se almacena en archivo ni en estado estático/global. E guarda la referencia en el slot `resultadoE` del contexto de esa ejecución únicamente después de cerrar y publicar E.csv con éxito; si E falla, el slot queda vacío y G no recibe resultado. Tras esperar exitosamente E, G recibe `ResultadoE`, valida cabecera, orden, cardinalidad y valores presentados de E.csv frente a las pendientes formateadas de ese resultado, y clasifica usando los `double` originales. La dependencia E→G y `Thread.join()` (o una garantía bloqueante equivalente de visibilidad al completar E) aseguran que G observe la publicación. No se usan flags compartidos con espera activa.
+
+Una pendiente con magnitud mayor que `1e-9` puede redondearse en E.csv y G.csv a `0.000000` (por ejemplo, `0.0000004`) y aun así clasificarse `CRECIENTE`; análogamente, una pendiente negativa menor que `-1e-9` puede mostrarse como `0.000000` y clasificarse `DECRECIENTE`. La presentación y la clasificación usan, respectivamente, el valor redondeado y el original, como fija este contrato. Este paso de valores entre las tareas existentes no crea un nodo, archivo, evento, dependencia ni servicio adicional.
 
 ```text
 pendiente >  1e-9  → CRECIENTE
@@ -215,7 +219,9 @@ Ambos modos ejecutan exactamente las operaciones A–H y publican los mismos for
 A → B → C → D → E → F → G → H
 ```
 
-El modo paralelo usa ocho instancias explícitas de `Thread`, una por nodo, con `start()` y `join()` o coordinación básica equivalente. A y B pueden ejecutarse simultáneamente; C espera a A y B; D y E pueden ejecutarse simultáneamente después de C; F espera a D; G espera a E; H espera a F y G. El hilo principal observa y comprueba la terminación correcta de todos los nodos antes de declarar éxito. Los errores de cualquier hilo se propagan al proceso principal. `ExecutorService`, `CompletableFuture` y pools de hilos no son mecanismos permitidos para orquestar P1.
+El modo serial usa el mismo contexto nuevo por ejecución: después de que D termina con éxito, F consume `ResultadoD`; después de que E termina con éxito, G consume `ResultadoE`. Los objetos internos no se reconstruyen a partir de CSV redondeados ni se reutilizan entre ejecuciones.
+
+El modo paralelo usa ocho instancias explícitas de `Thread`, una por nodo. Cada hilo sucesor espera con `join()` a sus predecesores directos, comprueba su éxito y luego lee los resultados inmutables de sus slots del contexto de esa ejecución. `join()` garantiza la visibilidad de las escrituras del predecesor al sucesor. En particular, F espera solo a D y luego consume `ResultadoD`; G espera solo a E y luego consume `ResultadoE`, por lo que ambas ramas pueden avanzar independientemente. C espera a A y B; D y E esperan a C; H espera a F y G. El hilo principal también hace `join()` de todos los nodos antes de declarar éxito. No se permiten flags compartidos consultados en espera activa ni `sleep()` para orquestar dependencias. Los errores de cualquier hilo se propagan al proceso principal. `ExecutorService`, `CompletableFuture` y pools de hilos no son mecanismos permitidos para orquestar P1.
 
 ## 6. Directorios, trazas, publicación y fallo
 
