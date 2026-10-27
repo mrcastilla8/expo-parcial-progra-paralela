@@ -65,6 +65,7 @@ public class PruebaCorrelaciones {
                     "D modificado fue aceptado");
             esperarFallo(() -> AnalisisCorrelaciones.calcularCorrelaciones(c, d2, null, f),
                     "ResultadoD ausente fue aceptado");
+            probarOperacionesNoFinitas(raiz);
             System.out.println("Estadisticas D y correlaciones F: OK");
         } finally {
             borrar(raiz);
@@ -77,6 +78,31 @@ public class PruebaCorrelaciones {
             throw new AssertionError(mensaje);
         } catch (IOException esperado) {
             // El rechazo es el resultado esperado.
+        }
+    }
+
+    private static void probarOperacionesNoFinitas(Path raiz) throws Exception {
+        Path entrada = raiz.resolve("C-extremo.csv");
+        Path salidaD = raiz.resolve("D-extremo.csv");
+        Path salidaF = raiz.resolve("F-extremo.csv");
+        Files.writeString(entrada, DatasetMultivariable.CABECERA + "\n"
+                + "1,1e308,1,2,3\n"
+                + "2,1e308,2,3,4\n"
+                + "3,-1e308,3,4,5\n", StandardCharsets.UTF_8);
+        esperarFallo(() -> AnalisisCorrelaciones.calcularEstadisticas(entrada, salidaD),
+                "Una operacion no finita fue aceptada");
+        if (Files.exists(salidaD) || Files.exists(salidaF)) {
+            throw new AssertionError("El calculo extremo publico resultados invalidos");
+        }
+        try (var rutas = Files.list(raiz)) {
+            for (Path ruta : rutas.toList()) {
+                if (Files.isRegularFile(ruta)) {
+                    String contenido = Files.readString(ruta, StandardCharsets.UTF_8);
+                    if (contenido.contains("NaN") || contenido.contains("Infinity")) {
+                        throw new AssertionError("Se escribio un valor no finito en " + ruta);
+                    }
+                }
+            }
         }
     }
 
