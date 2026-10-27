@@ -7,12 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.charset.CodingErrorAction;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -60,26 +56,8 @@ public final class DatasetMultivariable {
         }
     }
 
-    public static final class Documento {
-        private final List<Observacion> observaciones;
-        private final String huellaSha256;
-
-        private Documento(List<Observacion> observaciones, String huellaSha256) {
-            this.observaciones = Collections.unmodifiableList(new ArrayList<>(observaciones));
-            this.huellaSha256 = huellaSha256;
-        }
-
-        public List<Observacion> observaciones() {
-            return observaciones;
-        }
-
-        public String huellaSha256() {
-            return huellaSha256;
-        }
-    }
-
     public static Parte leerParte(Path archivo) throws IOException {
-        List<Observacion> observaciones = leer(archivo, null);
+        List<Observacion> observaciones = leer(archivo);
         if (observaciones.isEmpty()) {
             throw new IOException("La parte no contiene observaciones: " + archivo);
         }
@@ -96,14 +74,9 @@ public final class DatasetMultivariable {
     }
 
     public static List<Observacion> leerCompleto(Path archivo) throws IOException {
-        return leerCompletoConHuella(archivo).observaciones;
-    }
-
-    public static Documento leerCompletoConHuella(Path archivo) throws IOException {
-        MessageDigest digest = sha256();
-        List<Observacion> observaciones = leer(archivo, digest);
+        List<Observacion> observaciones = leer(archivo);
         validarSecuenciaGlobal(observaciones);
-        return new Documento(observaciones, HexFormat.of().formatHex(digest.digest()));
+        return Collections.unmodifiableList(observaciones);
     }
 
     public static String contenido(Parte parte) {
@@ -114,12 +87,9 @@ public final class DatasetMultivariable {
         return salida.toString();
     }
 
-    private static List<Observacion> leer(Path archivo, MessageDigest digest) throws IOException {
+    private static List<Observacion> leer(Path archivo) throws IOException {
         List<Observacion> observaciones = new ArrayList<>();
         InputStream entrada = new SaltosValidosInputStream(Files.newInputStream(archivo));
-        if (digest != null) {
-            entrada = new DigestInputStream(entrada, digest);
-        }
         var decodificador = StandardCharsets.UTF_8.newDecoder()
                 .onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT);
@@ -143,14 +113,6 @@ public final class DatasetMultivariable {
             }
         }
         return observaciones;
-    }
-
-    private static MessageDigest sha256() {
-        try {
-            return MessageDigest.getInstance("SHA-256");
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 no disponible", e);
-        }
     }
 
     private static final class SaltosValidosInputStream extends FilterInputStream {

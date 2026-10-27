@@ -22,7 +22,7 @@ java -Xmx256m -cp $build PruebaDataset
 
 ```text
 COMPILACION_EXIT=0
-Dataset grande: 100000 observaciones generadas y leidas; tiempo=1366.119 ms; memoria_usada_aprox=78401200 bytes
+Dataset grande: 100000 observaciones generadas y leidas; tiempo=1238.094 ms; memoria_usada_aprox=57076992 bytes
 Generacion y validacion de dataset: OK
 PRUEBA_DATASET_EXIT=0
 ```
