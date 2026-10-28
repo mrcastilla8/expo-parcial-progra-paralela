@@ -7,8 +7,6 @@
 *.bat text eol=crlf
 *.py text eol=crlf
 *.log text eol=crlf
-evidencias/p2_carga*.csv text eol=crlf
 /README.md text eol=crlf
 Pregunta1/README.md text eol=crlf
-Pregunta2/README.md text eol=crlf
 evidencias/PRUEBAS.md text eol=crlf

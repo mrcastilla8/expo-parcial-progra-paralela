@@ -1,6 +1,0 @@
-LISTO maestro=127.0.0.1:5000
-Nodo nodo1 IP=127.0.0.1 capacidad=4 registros=57144
-Nodo nodo2 IP=127.0.0.1 capacidad=2 registros=28571
-Nodo nodo3 IP=127.0.0.1 capacidad=1 registros=14285
-Registros esperados/procesados: 100000/100000
-Tiempo distribuido: 1404.103 ms

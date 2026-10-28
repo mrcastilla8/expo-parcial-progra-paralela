@@ -1,3 +1,0 @@
-LISTO maestro=127.0.0.1:5000
-Nodo nodo1 IP=127.0.0.1 capacidad=4 registros=100
-ERROR coordinador: java.util.concurrent.ExecutionException: java.net.SocketException: Se ha anulado una conexión establecida por el software en su equipo host.

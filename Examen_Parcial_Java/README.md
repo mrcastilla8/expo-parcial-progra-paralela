@@ -4,7 +4,7 @@ Dos proyectos independientes de consola, escritos para Java 17 con biblioteca es
 No se necesita Maven ni una base de datos.
 
 - [Pregunta 1](Pregunta1/): análisis serial y paralelo de los archivos CSV incluidos.
-- [Pregunta 2](Pregunta2/README.md): transacciones sintéticas y distribución por sockets TCP entre JVM independientes.
+- [Pregunta 2](Pregunta2/): transacciones sintéticas y distribución por sockets TCP entre JVM independientes.
 - [Pruebas realizadas](evidencias/PRUEBAS.md): resultados medidos y alcance de la validación.
 
 ## Pregunta 1
@@ -25,12 +25,11 @@ java -cp build Principal comparar
 
 ## Pregunta 2
 
-Consulta [su README](Pregunta2/README.md) para compilar y ejecutar el clúster. En Windows,
-la demostración local se inicia con `scripts\demo_local.bat 100000` desde `Pregunta2/`;
-en Linux, con `sh scripts/demo_local.sh 100000`.
+Desde `Pregunta2/`, compila con `javac --release 17 -encoding UTF-8 -d build src/*.java`.
+Ejecuta `Generador`, `Coordinador` y `Trabajador` con los argumentos mostrados por sus clases.
 
-El ZIP contiene fuentes, configuraciones locales editables, muestras pequeñas, scripts y
-evidencia textual. No incluye clases compiladas ni datasets grandes.
+El ZIP contiene fuentes, configuraciones locales editables, muestras pequeñas y evidencia
+textual. No incluye clases compiladas ni datasets grandes.
 
 Material revisado: EP - PCP.docx (archivo recibido que corresponde al examen mencionado
 como DOC-20261015-WA0036.docx), ClusterComputing_1.java y Configuracion.txt. El diagrama
