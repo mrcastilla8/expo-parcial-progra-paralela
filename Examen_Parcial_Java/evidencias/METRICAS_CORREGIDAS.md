@@ -55,7 +55,25 @@ El cronómetro distribuido incluye inspección y particionado, espera/establecim
 
 ## PCP-10, PCP-11 y límites pendientes
 
-- **PCP-10 (#10):** OPEN al 2026-10-27; su regresión sigue pendiente. Las mediciones P2 son preliminares hasta que PCP-10 quede integrado y validado.
+- **PCP-10 (#10):** OPEN; la suite actualizada pasa en PR #25, pero aún no está integrada. La validación P2 permanece preliminar hasta el merge legítimo del PR.
 - **PCP-11 (#11):** OPEN y bloqueado por falta de una segunda computadora física. No se ejecutó ni se declara una prueba LAN. La preparación operativa se publicó como comentario del issue #11.
-- **PCP-12 (#12):** OPEN. Queda pendiente validar P2 sobre el estado final de PCP-10. Estas mediciones no satisfacen una prueba física de red, y no justifican cerrar #12.
+- **PCP-12 (#12):** OPEN. La validación de integración P2 está registrada abajo y pasa provisionalmente; queda confirmar el resultado sobre main después del merge de PCP-10. No satisface una prueba física de red ni permite cerrar #12.
 - Las métricas son de este equipo, este dataset y estas tres repeticiones; no son una afirmación de rendimiento general.
+
+## Verificación de integración PCP-12 — provisional
+
+- **Commit de las mediciones repetidas originales:** `016395b1e9d676d6e4d5bd7bce3391a3d78c0068` (implementación P1/P2 medida y dataset originales). Se conservan sin cambios los CSV, logs, tiempos y medianas anteriores.
+- **Commit de código validado:** `261a7eac0c544061d725f75ba2a58eccfea36ae6` (main actualizado `ebdcec60` más cambios PCP-10 revisados en PR #25). Validado en worktree temporal `pcp12-integracion`; esos commits de `basualdo` no se incorporaron a la historia de `castilla`.
+- **Estado de dependencia:** PR #25 / PCP-10 continúa abierto. La regresión integrada pasó, pero P2 queda **PROVISIONAL** hasta que el PR sea fusionado legítimamente a main. No se declara cerrada la dependencia.
+
+### P1: equivalencia sobre el main reducido
+
+Sin scripts ni suites de prueba de P1, compilé directamente las fuentes presentes con `javac --release 17 -encoding UTF-8 -d build src\*.java`; exit 0. Corrí `java -cp build Serial`, `java -cp build Paralelo` y `java -cp build Principal comparar` sobre el dataset versionado de seis observaciones; los tres terminaron con exit 0. La comparación reportó `Validacion SHA-256 A-H: OK`; los hashes de A.csv–G.csv y H.txt coincidieron. Esta corrida confirma equivalencia funcional sobre la muestra y **no reemplaza** las mediciones repetidas de 100 000 observaciones ni sus speedups.
+
+### P2: regresión PCP-10 y verificación final
+
+`Pregunta2/scripts/probar.bat` ejecutó las cuatro clases (`PruebaBalanceador`, `PruebaTransferencia`, `PruebaInterrupcion`, `PruebaCluster`) con Java 17 y terminó `Pruebas P2: OK`. La prueba corregida fallaría con `SocketTimeoutException`; en esta corrida los rechazos desconocido/duplicado ocurrieron por cierre TCP y los trabajadores legítimos procesaron 20/20. También pasaron el reparto 400/200/100, N/N para clúster normal y disponibilidad parcial, cuota cero, rechazo por almacenamiento insuficiente, sin workers y desconexión sin falso éxito.
+
+`Pregunta2/scripts/demo_local.bat 100000`: PASS, en una computadora física y cuatro JVM sobre `127.0.0.1`; nodo1/nodo2/nodo3 procesaron 57144/28571/14285, total 100000/100000. SHA-256 de `serial.csv` y `consolidado.csv`: `FC5B4D14B90E67427A9C501582197F6BE029F37341C23FFC56243044A8A60547` en ambos archivos. La corrida de verificación (no una repetición estadística) midió 338.987800 ms serial y 1872.960300 ms distribuido; speedup de esa ejecución: 0.1810. El reparto y `procesamiento_ns` se conservaron en `PCP12_P2_VALIDACION_LOCAL_CARGA.csv`.
+
+No se realizaron pruebas entre computadoras; localhost no acredita LAN física. PCP-11 (#11) permanece abierto por falta de una segunda computadora real.
