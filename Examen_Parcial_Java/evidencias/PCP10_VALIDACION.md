@@ -165,3 +165,23 @@ La suite de regresión demuestra que la migración a concurrencia explícita med
 2. Proporción de reparto por capacidad según el `Balanceador`, incluyendo redistribución por cuota cero.
 3. Rechazo estricto y seguro de nodos desconocidos o duplicados durante la ventana de admisión.
 4. Ausencia total de falsos positivos o archivos de éxito parcial ante caídas, desconexiones, almacenamiento insuficiente o interrupciones.
+
+## Actualización de verificación — 2026-10-27
+
+**Código validado:** `d159510f81c11455c5435d0ae8ee8546242924a8` (`basualdo`), integrado con `main` `ebdcec60c5863cbb6f0ad24a43c410862537c513` mediante merge normal. Esta actualización registra corridas de esta máquina; no sustituye las evidencias históricas anteriores.
+
+**Entorno actual:** Windows 11 Home Single Language 64-bit (10.0.26200), Intel Core i5-12500H, JDK/Javac 17.0.12, compilación `--release 17`. Todas las pruebas del clúster se realizaron en una computadora física por `127.0.0.1`.
+
+### P2: compilación y regresión
+
+- `Pregunta2/scripts/probar.bat`: **PASS**, exit 0. Compiló con `--release 17` y ejecutó `PruebaBalanceador`, `PruebaTransferencia`, `PruebaInterrupcion` y `PruebaCluster`.
+- La prueba de admisión desconocido/duplicado leyó EOF/cierre TCP remoto; ambas conexiones fueron rechazadas y el maestro permaneció en admisión. Los trabajadores legítimos nodo1/nodo2 fueron aceptados y completaron 20/20. `SocketTimeoutException` ahora falla la prueba mediante `AssertionError`.
+- La suite informó 700/700 con cuota 400/200/100; disponibilidad parcial 300/300; cuota cero con 100/100; rechazo por almacenamiento insuficiente; sin trabajadores y desconexión sin éxito global. La suite terminó con `Pruebas P2: OK`.
+- `Pregunta2/scripts/demo_local.bat 1000`: **PASS**, 1000/1000; reparto 573/285/142; SHA serial/consolidado OK; serial 82.034 ms, distribuido 1225.694 ms.
+- `Pregunta2/scripts/demo_local.bat 100000`: **PASS**, 100000/100000; reparto 57144/28571/14285; SHA serial/consolidado OK; serial 327.907 ms, distribuido 1718.789 ms.
+
+### P1: verificación directa tras la reducción de entrega
+
+La compilación directa de las fuentes de producción (`javac --release 17 -encoding UTF-8 -d build src\*.java`) terminó con exit 0. `java -cp build Serial`, `java -cp build Paralelo` y `java -cp build Principal comparar` terminaron con exit 0 sobre el dataset versionado incluido (seis observaciones); la comparación informó `Validacion SHA-256 A-H: OK`. A.csv–G.csv y H.txt tienen hashes serial/paralelo idénticos. Esta es una verificación funcional sobre el dataset de muestra, no una repetición de las mediciones de 100000 observaciones de PCP-12.
+
+No se ejecutó ni restauró `Pregunta1/scripts/probar.bat`, ningún otro script P1, ni fuentes `Prueba*.java` de P1. Las eliminaciones de P1 del commit `ebdcec6` se preservan.
