@@ -86,6 +86,41 @@ public class Coordinador {
         return partes;
     }
 
+    static void esperarHilos(Thread[] hilos, List<Conexion> conexiones) throws InterruptedException {
+        boolean interrumpido = false;
+        try {
+            for (Thread h : hilos) {
+                if (h == null) continue;
+                while (h.isAlive()) {
+                    try {
+                        h.join();
+                    } catch (InterruptedException e) {
+                        interrumpido = true;
+                        // Solicita interrupcion a todos los hilos trabajadores
+                        for (Thread w : hilos) {
+                            if (w != null) {
+                                w.interrupt();
+                            }
+                        }
+                        // Cierra los sockets para desbloquear operaciones TCP que esten esperando datos
+                        for (var con : conexiones) {
+                            try {
+                                con.close();
+                            } catch (IOException ignored) {}
+                        }
+                    }
+                }
+            }
+            if (interrumpido) {
+                throw new InterruptedException("Coordinador interrumpido durante la espera de trabajadores");
+            }
+        } finally {
+            if (interrumpido) {
+                Thread.currentThread().interrupt(); // Restaura el estado de interrupcion del coordinador
+            }
+        }
+    }
+
     static void distribuir(Configuracion c, Path datos, Path salida) throws Exception {
         Files.createDirectories(salida);
         Files.deleteIfExists(salida.resolve("EXITO.txt"));
@@ -160,6 +195,7 @@ public class Coordinador {
 
                         long recibidos = x.in.readLong();
                         long tiempo = x.in.readLong();
+                        if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
                         if (recibidos != cuotas[idx] || tiempo < 0) {
                             throw new IOException("Trabajo incompleto " + x.nodo.id());
                         }
@@ -168,6 +204,7 @@ public class Coordinador {
                         Transferencia.recibir(x.in, parcial, x.disponible / 3);
 
                         var r = Procesamiento.leerResumen(parcial);
+                        if (Thread.currentThread().isInterrupted()) throw new InterruptedException();
                         if (r.cantidad() != cuotas[idx]) {
                             throw new IOException("Parcial inconsistente");
                         }
@@ -185,14 +222,7 @@ public class Coordinador {
                 hilos[idx].start();
             }
 
-            for (Thread h : hilos) {
-                try {
-                    h.join();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new IOException("Coordinador interrumpido durante espera de hilos", e);
-                }
-            }
+            esperarHilos(hilos, conexiones);
 
             for (int i = 0; i < n; i++) {
                 if (errores[i] != null) {
