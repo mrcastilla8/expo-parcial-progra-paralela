@@ -1,0 +1,18 @@
+Generados 100000 registros en dataset\transacciones.csv
+Registros: 100000; tiempo serial: 389.977 ms
+LISTO maestro=127.0.0.1:5000
+Nodo nodo1 IP=127.0.0.1 capacidad=4 registros=57144
+Nodo nodo2 IP=127.0.0.1 capacidad=2 registros=28571
+Nodo nodo3 IP=127.0.0.1 capacidad=1 registros=14285
+Nodo nodo3 IP=127.0.0.1 recibidos bytes=697308 registros=14285
+Nodo nodo2 IP=127.0.0.1 recibidos bytes=1394509 registros=28571
+Resultado confirmado: 14285
+Resultado confirmado: 28571
+Nodo nodo1 IP=127.0.0.1 recibidos bytes=2776810 registros=57144
+Resultado confirmado: 57144
+Registros esperados/procesados: 100000/100000
+Tiempo distribuido: 1806.480 ms
+Validacion SHA-256: OK
+Tiempo serial: 389.977 ms
+Tiempo distribuido: 1806.480 ms
+Speedup: 0.2159

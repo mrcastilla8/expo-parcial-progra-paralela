@@ -1,0 +1,16 @@
+Compilación y regresiones P2 (snapshot medido: 016395b, Java 17.0.12)
+Comando de compilación: scripts\compilar.bat (javac --release 17 -encoding UTF-8 -d build src\*.java)
+Resultado de compilación: exit 0
+
+PruebaBalanceador: PASS
+Balanceo 4:2:1=[400, 200, 100]; con limite=[100, 400, 200]; insuficiencia rechazada: OK
+
+PruebaTransferencia: PASS
+Transferencias truncadas/corruptas rechazadas sin publicar resultados: OK
+
+PruebaInterrupcion: PASS
+LISTO maestro=127.0.0.1:<puerto efímero>
+Nodo nodo1 IP=127.0.0.1 capacidad=1 registros=2
+Pruebas de interrupcion del coordinador: OK
+
+Nota: PruebaInterrupcion utiliza puerto efímero local; el puerto indicado por el test puede variar en cada ejecución.
