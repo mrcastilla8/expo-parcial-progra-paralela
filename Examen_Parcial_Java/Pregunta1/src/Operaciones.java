@@ -1,58 +1,90 @@
-import java.io.*;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.*;
-import java.util.HexFormat;
+import java.util.*;
 
 public final class Operaciones {
-    static final int BLOQUE = 65536;
-    static void segmento(Path origen, RandomAccessFile destino, long inicio, long cantidad) throws IOException {
-        try (RandomAccessFile f = new RandomAccessFile(origen.toFile(), "r")) {
-            f.seek(inicio);
-            byte[] b = new byte[BLOQUE];
-            while (cantidad > 0) {
-                int n = f.read(b, 0, (int)Math.min(b.length, cantidad));
-                if (n < 0) throw new EOFException("Segmento incompleto: " + origen);
-                destino.write(b, 0, n);
-                cantidad -= n;
+    private Operaciones() {}
+
+    static void publicar(Path salida, String contenido) throws IOException {
+        Path temporal = Files.createTempFile(salida.toAbsolutePath().getParent(),
+                salida.getFileName().toString(), ".tmp");
+        try {
+            byte[] esperados = contenido.getBytes(StandardCharsets.UTF_8);
+            Files.write(temporal, esperados);
+            if (!Arrays.equals(esperados, Files.readAllBytes(temporal))) {
+                throw new IOException("El temporal no coincide con los bytes UTF-8 esperados: " + salida);
             }
+            Files.move(temporal, salida, StandardCopyOption.REPLACE_EXISTING);
+        } finally {
+            Files.deleteIfExists(temporal);
         }
     }
-    static void unir(Path salida, Path... entradas) throws IOException {
-        try (RandomAccessFile f = new RandomAccessFile(salida.toFile(), "rw")) {
-            f.setLength(0);
-            for (Path p : entradas) segmento(p, f, 0, Files.size(p));
-        }
+
+    static void particion(Path entrada, Path salida) throws IOException {
+        publicar(salida, DatasetMultivariable.contenido(DatasetMultivariable.leerParte(entrada)));
     }
-    static void extraer(Path origen, Path salida) throws IOException {
-        long inicio = Files.size(origen) / 4, cantidad = Files.size(origen) / 2;
-        try (RandomAccessFile f = new RandomAccessFile(salida.toFile(), "rw")) {
-            f.setLength(0); segmento(origen, f, inicio, cantidad);
-        }
+
+    static void unir(Path a, Path b, Path salida) throws IOException {
+        var datos = DatasetMultivariable.unir(DatasetMultivariable.leerParte(a),
+                DatasetMultivariable.leerParte(b));
+        StringBuilder contenido = new StringBuilder(DatasetMultivariable.CABECERA).append('\n');
+        for (var fila : datos) contenido.append(fila.linea()).append('\n');
+        publicar(salida, contenido.toString());
     }
-    static void transformar(Path origen, Path salida) throws IOException {
-        unir(salida, origen);
-        try (RandomAccessFile f = new RandomAccessFile(salida.toFile(), "rw")) {
-            byte[] b = new byte[BLOQUE];
-            long posicion = 0; int n;
-            while ((n = f.read(b)) != -1) {
-                for (int i = 0; i < n; i++) if (b[i] >= 'a' && b[i] <= 'z') b[i] -= 32;
-                f.seek(posicion); f.write(b, 0, n); posicion += n; f.seek(posicion);
+
+    static void resumen(Path f, Path g, Path salida) throws IOException {
+        List<String> correlaciones = Files.readAllLines(f, StandardCharsets.UTF_8);
+        List<String> tendencias = Files.readAllLines(g, StandardCharsets.UTF_8);
+        if (correlaciones.size() != 7 || tendencias.size() != 5
+                || !correlaciones.get(0).equals("variable_1,variable_2,pearson")
+                || !tendencias.get(0).equals("variable,pendiente,tendencia")) {
+            throw new IOException("F/G: cabecera o cardinalidad invalida");
+        }
+        String[] variables = DatasetMultivariable.VARIABLES;
+        StringBuilder contenido = new StringBuilder("CORRELACIONES\n");
+        int fila = 1;
+        for (int x = 0; x < 4; x++) for (int y = x + 1; y < 4; y++) {
+            String[] campos = correlaciones.get(fila++).split(",", -1);
+            if (campos.length != 3 || !campos[0].equals(variables[x])
+                    || !campos[1].equals(variables[y])) throw new IOException("Par invalido en F");
+            if (!campos[2].equals("NO_DEFINIDA") && Math.abs(decimal(campos[2])) > 1)
+                throw new IOException("Pearson fuera de rango");
+            contenido.append(campos[0]).append('|').append(campos[1]).append('=')
+                    .append(campos[2]).append('\n');
+        }
+        contenido.append("TENDENCIAS\n");
+        for (int i = 0; i < 4; i++) {
+            String[] campos = tendencias.get(i + 1).split(",", -1);
+            if (campos.length != 3 || !campos[0].equals(variables[i])
+                    || !Set.of("CRECIENTE", "DECRECIENTE", "ESTABLE").contains(campos[2]))
+                throw new IOException("Tendencia invalida en G");
+            decimal(campos[1]);
+            contenido.append(String.join("|", campos)).append('\n');
+        }
+        publicar(salida, contenido.toString());
+    }
+
+    private static double decimal(String valor) throws IOException {
+        if (!valor.matches("-?[0-9]+\\.[0-9]{6}") || valor.equals("-0.000000"))
+            throw new IOException("Formato decimal invalido: " + valor);
+        double numero = Double.parseDouble(valor);
+        if (!Double.isFinite(numero)) throw new IOException("Decimal no finito");
+        return numero;
+    }
+
+    static String sha(Path archivo) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (var entrada = Files.newInputStream(archivo)) {
+                byte[] bloque = new byte[65536];
+                int n;
+                while ((n = entrada.read(bloque)) != -1) digest.update(bloque, 0, n);
             }
+            return HexFormat.of().formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no disponible", e);
         }
-    }
-    static long patrones(Path p) throws IOException {
-        byte[] patron = "ERROR".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
-        int[] prefijo = {0,0,0,0,0};
-        for (int i=1,j=0;i<patron.length;i++) { while(j>0 && patron[i]!=patron[j]) j=prefijo[j-1]; if(patron[i]==patron[j]) j++; prefijo[i]=j; }
-        long total=0; int j=0,n; byte[] b=new byte[BLOQUE];
-        try(RandomAccessFile f=new RandomAccessFile(p.toFile(),"r")) {
-            while((n=f.read(b))!=-1) for(int i=0;i<n;i++) { while(j>0 && b[i]!=patron[j]) j=prefijo[j-1]; if(b[i]==patron[j]) j++; if(j==patron.length) {total++; j=prefijo[j-1];} }
-        }
-        return total;
-    }
-    static String sha(Path p) throws Exception {
-        MessageDigest d=MessageDigest.getInstance("SHA-256"); byte[] b=new byte[BLOQUE]; int n;
-        try(RandomAccessFile f=new RandomAccessFile(p.toFile(),"r")) {while((n=f.read(b))!=-1) d.update(b,0,n);}
-        return HexFormat.of().formatHex(d.digest());
     }
 }
