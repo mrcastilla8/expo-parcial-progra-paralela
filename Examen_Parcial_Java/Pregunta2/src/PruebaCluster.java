@@ -238,14 +238,9 @@ public class PruebaCluster {
             outDesc.writeLong(10485760L);
             outDesc.flush();
 
-            boolean rechazadoDesc = false;
-            try {
-                int r = inDesc.read();
-                if (r == -1) rechazadoDesc = true;
-            } catch (IOException esperado) {
-                rechazadoDesc = true;
-            }
-            exigir(rechazadoDesc, "El nodo desconocido fue aceptado indebidamente");
+            exigirRechazoDuranteAdmision(sDesc, inDesc, "nodo desconocido");
+            exigir(maestro.isAlive() && errorMaestro.get() == null,
+                    "El maestro abandono la admision tras rechazar al nodo desconocido");
             sDesc.close();
 
             // 2. Primer nodo1 valido: aceptado
@@ -270,14 +265,9 @@ public class PruebaCluster {
             outDup.writeLong(10485760L);
             outDup.flush();
 
-            boolean rechazadoDup = false;
-            try {
-                int r = inDup.read();
-                if (r == -1) rechazadoDup = true;
-            } catch (IOException esperado) {
-                rechazadoDup = true;
-            }
-            exigir(rechazadoDup, "El nodo duplicado fue aceptado indebidamente");
+            exigirRechazoDuranteAdmision(sDup, inDup, "nodo duplicado");
+            exigir(maestro.isAlive() && errorMaestro.get() == null,
+                    "El maestro abandono la admision tras rechazar al nodo duplicado");
             sDup.close();
 
             // 4. Segundo nodo valido (nodo2) para completar la admision
@@ -302,6 +292,18 @@ public class PruebaCluster {
             cerrar(sDesc); cerrar(s1); cerrar(sDup); cerrar(s2);
             if (maestro != null && maestro.isAlive()) { maestro.interrupt(); maestro.join(2000); }
             borrar(raiz);
+        }
+    }
+
+    private static void exigirRechazoDuranteAdmision(Socket socket, DataInputStream entrada, String id)
+            throws IOException {
+        try {
+            int respuesta = entrada.read();
+            exigir(respuesta == -1, "El " + id + " fue aceptado indebidamente");
+        } catch (SocketTimeoutException timeout) {
+            throw new AssertionError("Timeout esperando que el servidor cierre el socket del " + id, timeout);
+        } catch (SocketException cerradoPorServidor) {
+            // Un reset/cierre TCP remoto acredita el rechazo; los timeouts no entran en esta rama.
         }
     }
 

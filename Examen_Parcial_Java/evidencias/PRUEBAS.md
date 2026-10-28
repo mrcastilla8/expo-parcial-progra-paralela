@@ -2,10 +2,9 @@
 
 Entorno: Windows, JDK 25.0.1; compilación --release 17.
 
-- Pregunta 1 (análisis multivariable y ocho Thread): ver PCP02_VALIDACION.md,
-  PCP03_VALIDACION.md, PCP04_VALIDACION.md, PCP05_06_VALIDACION.md y
-  PCP07_VALIDACION.md. Las evidencias p1_* de la versión binaria anterior
-  se retiraron; siguen disponibles en el historial de git (commit a20c23e).
+- Pregunta 1 (análisis multivariable y ocho Thread): las evidencias anteriores
+  permanecen en el historial Git. La entrega actual conserva únicamente su
+  implementación y datasets, según el commit `ebdcec6`.
 - Pregunta 2 (transacciones bancarias distribuidas y concurrencia Thread):
   ver PCP10_VALIDACION.md. Ejecución automatizada completa disponible mediante
   `Pregunta2/scripts/probar.bat` (Linux: `sh Pregunta2/scripts/probar.sh`), que
