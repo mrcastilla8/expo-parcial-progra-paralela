@@ -1,9 +1,9 @@
-> **Integración en borrador (PCP-05/06):** la versión actual prepara el análisis
-> CSV y ocho Thread, pero requiere las clases D/F y E/G de PCP-03/04 para
-> compilar y ejecutar el proyecto completo. Consulta
-> [estado, firmas y pruebas disponibles](INTEGRACION_PCP05_06.md).
-> El contenido restante describe la versión binaria histórica y será actualizado
-> por PCP-08.
+> **Implementación vigente (PCP-05/06):** análisis multivariable CSV, ejecución
+> estrictamente serial y ocho Thread. PCP-03/04 ya están integrados y la
+> compilación completa y las pruebas pasan. Consulta la
+> [guía operativa y de integración actual](INTEGRACION_PCP05_06.md).
+> El contenido restante describe la versión binaria histórica; su actualización
+> académica completa corresponde a PCP-08.
 
 # Pregunta 1 — Paralelismo orientado a tareas
 

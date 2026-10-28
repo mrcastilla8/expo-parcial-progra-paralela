@@ -1,92 +1,105 @@
-# Integración PCP-05 / PCP-06 pendiente de dependencias
+# Integración PCP-05 / PCP-06
 
-Este cambio prepara los nodos A/B/C/H y la coordinación serial y paralela.
-Por decisión del solicitante, no implementa PCP-03 (D/F) ni PCP-04 (E/G).
-**Es un borrador: la compilación completa y los comandos serial/paralelo/comparar
-quedan bloqueados hasta incorporar esas clases y confirmar sus firmas.**
-No fusionar este PR mientras falten las dependencias y la validación completa.
+La integración usa las implementaciones definitivas de PCP-03 y PCP-04,
+incorporadas desde main (7013792; PR #22 y #21). El proyecto completo compila
+con Java 17 y ambos modos ejecutan las mismas operaciones sobre el dataset CSV.
+La fuente de verdad de formatos y reglas numéricas es CONTRATO_ANALISIS.md.
 
-## Código preparado
+## Ejecución
 
-- A/B validan cada partición con DatasetMultivariable y publican CSV normalizados
-  a LF, conservando los tokens originales.
-- C valida continuidad global 1..N y mínimo de tres filas, conserva el orden
-  de A seguido de B y escribe una sola cabecera.
-- H valida los seis pares de F y las cuatro variables/categorías de G; escribe
-  el resumen canónico del contrato sin interpretaciones causales.
-- Serial mantiene A,B,C,D,E,F,G,H sin crear hilos de trabajo.
-- Paralelo instancia ocho Thread llamados A..H. Cada uno hace join de sus
-  predecesores y verifica su éxito antes de ejecutar la operación.
-- Solo la escritura de trazas usa sincronización global. Los cálculos pueden
-  solaparse. El principal espera todos los hilos y recibe sus excepciones.
-- Los resultados y el marcador se publican con temporal y renombrado.
-  Al crear el contexto se invalidan el marcador, resultados y traza previos.
-  La traza se intenta guardar también al fallar.
-- Comparar contrasta SHA-256 de A.csv–G.csv y H.txt, excluyendo tiempos/trazas;
-  una diferencia invalida ambos marcadores.
-- Se retira PruebaPatrones junto con las utilidades binarias sin consumidores.
-  Las evidencias y el informe históricos no constituyen validación de esta versión.
+Desde Pregunta1, con JDK 17 o posterior en PATH o JAVA_HOME:
 
-## Interfaz que deben proporcionar PCP-03/04
-
-Las firmas de PCP-03 se tomaron de la implementación anterior del commit
-cea4c71 en aldana, que fue retirada del diff de PCP-02. Las de PCP-04 son una
-propuesta de integración; deben conciliarse con su implementación definitiva.
-
-En el paquete por defecto de src, los métodos deben ser estáticos:
-
-```java
-// PCP-03
-AnalisisCorrelaciones.ResultadoD calcularEstadisticas(Path c, Path d);
-void calcularCorrelaciones(Path c, Path d,
-        AnalisisCorrelaciones.ResultadoD resultado, Path f);
-
-// PCP-04: propuesta
-AnalisisTendencias.ResultadoE calcularPendientes(Path c, Path e);
-void clasificar(Path e, AnalisisTendencias.ResultadoE resultado, Path g);
+```bat
+scripts\compilar.bat
+scripts\ejecutar.bat serial
+scripts\ejecutar.bat paralelo
+scripts\ejecutar.bat comparar
 ```
 
-Pueden declarar IOException. ResultadoD/ResultadoE deben ser inmutables y
-conservar precisión interna y huella de C conforme a CONTRATO_ANALISIS.md.
-Los métodos productores retornan el resultado solo después de publicar D/E.
-Las cuatro operaciones deben publicar por temporal y renombrado.
-Principal asigna cada slot únicamente cuando el método retorna con éxito;
-join proporciona la visibilidad a F/G, sin estado estático ni espera activa.
-
-Si PCP-03 utiliza leerCompletoConHuella y Documento, debe incorporarlos en
-DatasetMultivariable en su propio cambio. Este borrador conserva ese archivo
-tal como está en main y no incorpora implementaciones sustitutas de D/F/E/G.
-
-## Pruebas
-
-Desde Pregunta1, con JDK 17 o superior:
+En Linux usar sh scripts/compilar.sh y sh scripts/ejecutar.sh con los mismos
+argumentos. También se conservan los puntos de entrada:
 
 ```text
-javac --release 17 -encoding UTF-8 -d build-nodos src/DatasetMultivariable.java src/GeneradorDataset.java src/Operaciones.java src/PruebaDataset.java src/PruebaNodosDisponibles.java
-java -cp build-nodos PruebaNodosDisponibles
-java -cp build-nodos PruebaDataset
+java -cp build Serial
+java -cp build Paralelo
+java -cp build Principal comparar
 ```
 
-Estas pruebas no requieren PCP-03/04 y ya se ejecutaron.
-PruebaNodosDisponibles comprueba conservación de tokens y filas, LF,
-continuidad global, formato de H y rechazo de Pearson fuera de rango.
+Las entradas son dataset/parteA.csv y dataset/parteB.csv. Para reemplazarlas
+por datos reproducibles: java -cp build Principal generar 10000.
+La semilla predeterminada es 20261027; se puede fijar con -Dpcp.semilla=valor
+antes de -cp. El argumento indica observaciones totales, no bytes.
 
-Después de integrar PCP-03/04 y conciliar las firmas:
+## Operaciones y coordinación
+
+| Nodo | Operación | Producto |
+|---|---|---|
+| A/B | Validar cada partición y normalizar LF conservando los tokens originales. | A.csv/B.csv |
+| C | Unir A seguido de B, con una cabecera; validar 1..N y N >= 3. | C.csv |
+| D | Calcular estadísticas poblacionales mediante AnalisisCorrelaciones. | D.csv y ResultadoD |
+| E | Calcular pendientes mediante AnalisisTendencias. | E.csv y ResultadoE |
+| F | Calcular los seis Pearson con C, D y ResultadoD sin redondear. | F.csv |
+| G | Clasificar las cuatro pendientes de ResultadoE, validando E.csv. | G.csv |
+| H | Validar estructura y cardinalidad de F/G y consolidar el resumen canónico. | H.txt |
+
+No se infiere causalidad de las correlaciones o tendencias.
+
+Serial ejecuta exactamente A,B,C,D,E,F,G,H en el hilo principal.
+Paralelo crea ocho Thread llamados A..H. Cada sucesor espera con join a sus
+predecesores y comprueba su éxito: A+B -> C; C -> D -> F; C -> E -> G;
+F+G -> H. Todos los hilos se inician antes de que el principal espere por ellos.
+Los cálculos no usan bloqueo global; A/B y D/E pueden solaparse.
+
+Los resultados inmutables ResultadoD/ResultadoE pertenecen al contexto de la
+corrida y se asignan solo cuando el productor termina de publicar D/E.
+join garantiza su visibilidad a F/G. No se reconstruyen valores internos a partir
+de CSV redondeados ni se mantiene estado estático de resultados.
+Las firmas de las implementaciones definitivas coinciden con las llamadas de
+Principal; no se incluyen sustitutos ni copias de sus algoritmos.
+
+Los fallos de hilos se comunican al principal y bloquean sus sucesores; ramas
+independientes ya habilitadas pueden completar. El principal espera todos los
+hilos antes de decidir éxito. La espera tras una interrupción sigue usando join
+bloqueante y propaga la interrupción; no consulta flags con espera activa.
+
+## Publicación y comparación
+
+Cada modo escribe en salida/serial o salida/paralelo. Al crear el contexto se
+invalidan marcador, resultados y traza previos. Cada producto se publica mediante
+temporal y renombrado. registro.csv guarda INICIO/FIN/ERROR, nodo, hilo, reloj
+monotónico, duración y fecha UTC; se intenta guardar también ante fallos.
+EXITO.txt se publica al finalizar los ocho nodos y guardar la traza.
+
+Comparar exige ambos marcadores y contrasta SHA-256 de A.csv–G.csv y H.txt,
+excluyendo tiempos y trazas. Una diferencia o marcador ausente invalida ambos
+marcadores. Los errores del programa terminan con código 1. No ejecutar dos
+instancias sobre las mismas carpetas de salida.
+
+Se retiran PruebaPatrones y las utilidades binarias sin consumidores.
+El informe y las evidencias binarias históricos no validan esta versión.
+
+## Validación
+
+Después de compilar:
 
 ```text
-scripts/compilar.bat
+java -cp build PruebaDataset
+java -cp build PruebaCorrelaciones
+java -cp build PruebaTendencias
+java -cp build PruebaNodosDisponibles
 java -cp build PruebaIntegracion
 java -cp build Principal comparar
 ```
 
-En Linux usar sh scripts/compilar.sh. PruebaIntegracion está preparada para
-verificar un resultado conocido de H, identidad SHA-256 de los ocho productos,
-todas las aristas del DAG, nombres de hilos, orden serial, dieciséis fallos
-inyectados (cada nodo en ambos modos), invalidación de productos anteriores y
-clasificación de una pendiente menor que la precisión de presentación.
-Usa barreras de prueba para exigir progreso simultáneo A/B y D/E; no depende
-de solapamientos casuales del planificador. La prueba completa queda pendiente
-con las implementaciones definitivas.
+Estas pruebas ya se ejecutaron con las implementaciones definitivas.
+PruebaIntegracion verifica el resultado conocido de H, igualdad de los ocho
+productos, todas las aristas del DAG, nombres de hilos y orden serial.
+Inyecta dieciséis fallos (cada nodo en ambos modos), comprueba ERROR y que
+ningún descendiente se inicia ni conserva productos anteriores.
+Las barreras de prueba exigen progreso simultáneo A/B y D/E sin depender
+del azar del planificador. También verifica clasificación sin pérdida de
+precisión y rechazo de comparaciones con hashes distintos o marcador ausente.
 
-Las guías históricas de respaldo binario necesitan la actualización de PCP-08.
-Este documento describe el estado de esta integración, sin cerrar aquel issue.
+La evidencia ejecutada está en ../evidencias/PCP05_06_VALIDACION.md.
+La documentación académica completa y las pruebas adicionales de regresión
+siguen en el alcance de PCP-08 y PCP-07, respectivamente.

@@ -84,6 +84,21 @@ public class PruebaIntegracion {
                     exigir(!Files.exists(salida.resolve("EXITO.txt")), "Exito obsoleto");
                     exigir(!Files.exists(fallo.p(n)), "Producto fallido/obsoleto");
                     exigir(!Files.exists(fallo.p('H')), "H consumio producto fallido");
+                    List<String> traza = Files.readAllLines(salida.resolve("registro.csv"));
+                    evento(traza, n, "ERROR");
+                    String bloqueados = switch (n) {
+                        case 'A', 'B' -> "CDEFGH";
+                        case 'C' -> "DEFGH";
+                        case 'D' -> "FH";
+                        case 'E' -> "GH";
+                        case 'F', 'G' -> "H";
+                        default -> "";
+                    };
+                    for (char sucesor : bloqueados.toCharArray()) {
+                        exigir(!Files.exists(fallo.p(sucesor)), "Producto de sucesor fallido");
+                        exigir(traza.stream().noneMatch(linea -> linea.startsWith(sucesor + ",INICIO,")),
+                                "Se inicio sucesor de nodo fallido");
+                    }
                     if (!modo) for (char posterior = n; posterior <= 'H'; posterior++)
                         exigir(!Files.exists(fallo.p(posterior)), "Sucesor serial ejecutado");
                 }
@@ -104,6 +119,15 @@ public class PruebaIntegracion {
             } catch (IOException esperadoError) {
                 exigir(!Files.exists(serial.directorio.resolve("EXITO.txt")), "Marcador serial");
                 exigir(!Files.exists(paralelo.directorio.resolve("EXITO.txt")), "Marcador paralelo");
+            }
+            // La igualdad de bytes no basta si falta el marcador de una corrida.
+            Files.copy(serial.p('H'), paralelo.p('H'), StandardCopyOption.REPLACE_EXISTING);
+            Files.writeString(paralelo.directorio.resolve("EXITO.txt"), "marcador de prueba");
+            try {
+                Principal.comparar(serial, paralelo);
+                throw new AssertionError("Comparacion acepto ejecucion sin marcador");
+            } catch (IOException esperadoError) {
+                exigir(!Files.exists(paralelo.directorio.resolve("EXITO.txt")), "Marcador parcial");
             }
             System.out.println("Integracion serial/8 Thread, DAG, solapamiento con barreras, 16 fallos y SHA-256: OK");
         } finally {

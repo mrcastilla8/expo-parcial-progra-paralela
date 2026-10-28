@@ -65,6 +65,7 @@ public class Principal {
         final char nodo;
         final Tarea[] anteriores;
         final Thread hilo;
+        // Sus consumidores leen estos campos solo despues de join().
         Throwable fallo;
         boolean exito;
 
@@ -144,6 +145,9 @@ public class Principal {
 
     static void comparar(Principal serial, Principal paralelo) throws IOException {
         try {
+            if (!Files.isRegularFile(serial.directorio.resolve("EXITO.txt"))
+                    || !Files.isRegularFile(paralelo.directorio.resolve("EXITO.txt")))
+                throw new IOException("Comparacion requiere dos ejecuciones exitosas");
             for (char n = 'A'; n <= 'H'; n++) {
                 if (!Operaciones.sha(serial.p(n)).equals(Operaciones.sha(paralelo.p(n))))
                     throw new IOException("Diferencia nodo " + n);
