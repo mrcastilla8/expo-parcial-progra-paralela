@@ -1,14 +1,5 @@
 # Pregunta 1 — Paralelismo orientado a tareas
 
-## Avance del análisis multidimensional
-
-PCP-03 incorpora las operaciones estadísticas D/F y sus pruebas independientes.
-Consultar [API y validación de PCP-03](PCP03_ANALISIS.md) y
-[contrato vigente](CONTRATO_ANALISIS.md). El flujo de `Principal` descrito a
-continuación sigue siendo el de respaldos, pendiente de la integración PCP-05/06.
-
-## Flujo histórico de respaldos
-
 Procesa respaldos de registros físicos, por bloques de 64 KiB. Cada nodo publica su
 archivo .dat después de cerrar el archivo temporal. Una dependencia solo se habilita
 si su antecesor terminó sin error. Una ejecución fallida no genera EXITO.txt.
