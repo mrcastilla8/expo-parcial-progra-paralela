@@ -1,3 +1,10 @@
+> **Integración en borrador (PCP-05/06):** la versión actual prepara el análisis
+> CSV y ocho Thread, pero requiere las clases D/F y E/G de PCP-03/04 para
+> compilar y ejecutar el proyecto completo. Consulta
+> [estado, firmas y pruebas disponibles](INTEGRACION_PCP05_06.md).
+> El contenido restante describe la versión binaria histórica y será actualizado
+> por PCP-08.
+
 # Pregunta 1 — Paralelismo orientado a tareas
 
 Procesa respaldos de registros físicos, por bloques de 64 KiB. Cada nodo publica su
