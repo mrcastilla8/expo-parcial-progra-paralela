@@ -11,7 +11,11 @@ public final class Operaciones {
         Path temporal = Files.createTempFile(salida.toAbsolutePath().getParent(),
                 salida.getFileName().toString(), ".tmp");
         try {
-            Files.writeString(temporal, contenido, StandardCharsets.UTF_8);
+            byte[] esperados = contenido.getBytes(StandardCharsets.UTF_8);
+            Files.write(temporal, esperados);
+            if (!Arrays.equals(esperados, Files.readAllBytes(temporal))) {
+                throw new IOException("El temporal no coincide con los bytes UTF-8 esperados: " + salida);
+            }
             Files.move(temporal, salida, StandardCopyOption.REPLACE_EXISTING);
         } finally {
             Files.deleteIfExists(temporal);
