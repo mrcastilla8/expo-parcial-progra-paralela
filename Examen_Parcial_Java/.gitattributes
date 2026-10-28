@@ -1,0 +1,14 @@
+# Fija los saltos de linea del checkout para que SHA256SUMS.txt verifique igual en cualquier sistema.
+*.java text eol=lf
+*.sh text eol=lf
+*.properties text eol=lf
+*.txt text eol=lf
+*.csv text eol=lf
+*.bat text eol=crlf
+*.py text eol=crlf
+*.log text eol=crlf
+evidencias/p2_carga*.csv text eol=crlf
+/README.md text eol=crlf
+Pregunta1/README.md text eol=crlf
+Pregunta2/README.md text eol=crlf
+evidencias/PRUEBAS.md text eol=crlf
