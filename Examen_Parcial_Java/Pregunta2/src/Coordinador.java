@@ -87,10 +87,18 @@ public class Coordinador {
     }
 
     static void esperarHilos(Thread[] hilos, List<Conexion> conexiones) throws InterruptedException {
-        boolean interrumpido = false;
+        boolean interrumpido = Thread.interrupted();
         try {
             for (Thread h : hilos) {
                 if (h == null) continue;
+                if (interrumpido) {
+                    for (Thread w : hilos) {
+                        if (w != null) w.interrupt();
+                    }
+                    for (var con : conexiones) {
+                        try { con.close(); } catch (IOException ignored) {}
+                    }
+                }
                 while (h.isAlive()) {
                     try {
                         h.join();
@@ -111,7 +119,7 @@ public class Coordinador {
                     }
                 }
             }
-            if (interrumpido) {
+            if (interrumpido || Thread.interrupted()) {
                 throw new InterruptedException("Coordinador interrumpido durante la espera de trabajadores");
             }
         } finally {
@@ -224,6 +232,10 @@ public class Coordinador {
 
             esperarHilos(hilos, conexiones);
 
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Coordinador interrumpido");
+            }
+
             for (int i = 0; i < n; i++) {
                 if (errores[i] != null) {
                     if (errores[i] instanceof Exception e) throw e;
@@ -241,6 +253,10 @@ public class Coordinador {
 
             if (total.cantidad() != info[0]) {
                 throw new IOException("Cantidad global incorrecta");
+            }
+
+            if (Thread.currentThread().isInterrupted()) {
+                throw new InterruptedException("Coordinador interrumpido antes de publicar resultados");
             }
 
             total.guardar(salida.resolve("consolidado.csv"));

@@ -10,6 +10,7 @@ public class PruebaInterrupcion {
     public static void main(String[] args) throws Exception {
         probarInterrupcionCoordinadorActivo();
         probarLimpiezaRobustaEsperarHilos();
+        probarInterrupcionConTrabajadoresYaTerminados();
         System.out.println("Pruebas de interrupcion del coordinador: OK");
     }
 
@@ -222,6 +223,54 @@ public class PruebaInterrupcion {
         }
         if (!flagRestaurado.get()) {
             throw new AssertionError("esperarHilos debio restaurar el flag de interrupcion");
+        }
+    }
+
+    private static void probarInterrupcionConTrabajadoresYaTerminados() throws Exception {
+        // Caso limite: los trabajadores ya finalizaron antes de que el coordinador entre a esperarHilos(),
+        // pero el hilo coordinador tiene activado su estado de interrupcion.
+        Thread w1 = new Thread(() -> {});
+        Thread w2 = new Thread(() -> {});
+        w1.start();
+        w2.start();
+        w1.join();
+        w2.join();
+
+        if (w1.isAlive() || w2.isAlive()) {
+            throw new AssertionError("Los trabajadores debieron haber finalizado previamente");
+        }
+
+        Thread[] hilos = new Thread[]{w1, w2};
+        List<Coordinador.Conexion> conexiones = new ArrayList<>();
+
+        AtomicReference<Throwable> errorCapturado = new AtomicReference<>();
+        AtomicBoolean flagRestaurado = new AtomicBoolean();
+
+        Thread coordinador = new Thread(() -> {
+            Thread.currentThread().interrupt(); // Marca como interrumpido al hilo coordinador
+            try {
+                Coordinador.esperarHilos(hilos, conexiones);
+            } catch (InterruptedException e) {
+                errorCapturado.set(e);
+                flagRestaurado.set(Thread.currentThread().isInterrupted());
+            }
+        });
+
+        coordinador.start();
+        coordinador.join(3000);
+
+        if (coordinador.isAlive()) {
+            throw new AssertionError("El hilo coordinador no retorno a tiempo");
+        }
+
+        // Verifica que se propague la interrupcion
+        if (!(errorCapturado.get() instanceof InterruptedException)) {
+            throw new AssertionError("esperarHilos debio propagar InterruptedException aun con trabajadores ya terminados");
+        }
+
+        // Verifica que el estado de interrupcion quede restaurado
+        if (!flagRestaurado.get()) {
+            throw new AssertionError("El estado de interrupcion del coordinador debio quedar restaurado");
         }
     }
 
