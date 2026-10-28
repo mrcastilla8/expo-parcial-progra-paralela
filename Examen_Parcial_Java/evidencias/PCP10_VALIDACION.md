@@ -1,6 +1,6 @@
 # Validacion PCP-10 — Regresion del cluster y balanceo tras migrar a Thread
 
-Fecha: 2026-10-27.  
+Fecha: 2026-10-27.
 Rama: `basualdo`. Base: `origin/main` (incluye PCP-01 a PCP-07, PCP-08 y PCP-09).
 Responsable: `@MarcosBasualdoAle`.
 
@@ -10,7 +10,7 @@ Responsable: `@MarcosBasualdoAle`.
 
 - **Sistema Operativo:** Windows 11 Pro 64-bit.
 - **JDK:** OpenJDK 25.0.1 (compilacion con flag `--release 17`).
-- **Red:** Loopback local (`127.0.0.1`).  
+- **Red:** Loopback local (`127.0.0.1`).
   > **Nota sobre el entorno:** Todas las pruebas reportadas en este documento se ejecutaron en **localhost / loopback** utilizando procesos JVM independientes en la misma máquina física. No corresponden a pruebas en red física LAN con múltiples computadoras ni miden aceleración o latencia física de red.
 
 ---
