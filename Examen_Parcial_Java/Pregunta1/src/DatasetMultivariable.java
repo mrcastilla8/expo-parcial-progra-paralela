@@ -7,9 +7,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.charset.CodingErrorAction;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.DigestInputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.HexFormat;
 import java.util.regex.Pattern;
 
 public final class DatasetMultivariable {
@@ -56,6 +60,24 @@ public final class DatasetMultivariable {
         }
     }
 
+    public static final class Documento {
+        private final List<Observacion> observaciones;
+        private final String huellaSha256;
+
+        private Documento(List<Observacion> observaciones, String huellaSha256) {
+            this.observaciones = List.copyOf(observaciones);
+            this.huellaSha256 = huellaSha256;
+        }
+
+        public List<Observacion> observaciones() {
+            return observaciones;
+        }
+
+        public String huellaSha256() {
+            return huellaSha256;
+        }
+    }
+
     public static Parte leerParte(Path archivo) throws IOException {
         List<Observacion> observaciones = leer(archivo);
         if (observaciones.isEmpty()) {
@@ -79,6 +101,19 @@ public final class DatasetMultivariable {
         return Collections.unmodifiableList(observaciones);
     }
 
+    // La huella se obtiene de la misma lectura que produce las observaciones,
+    // antes de decodificar UTF-8 o interpretar los terminadores de linea.
+    public static Documento leerCompletoConHuella(Path archivo) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            List<Observacion> observaciones = leer(archivo, digest);
+            validarSecuenciaGlobal(observaciones);
+            return new Documento(observaciones, HexFormat.of().formatHex(digest.digest()));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 no disponible", e);
+        }
+    }
+
     public static String contenido(Parte parte) {
         StringBuilder salida = new StringBuilder(CABECERA).append('\n');
         for (Observacion observacion : parte.observaciones) {
@@ -88,8 +123,15 @@ public final class DatasetMultivariable {
     }
 
     private static List<Observacion> leer(Path archivo) throws IOException {
+        return leer(archivo, null);
+    }
+
+    private static List<Observacion> leer(Path archivo, MessageDigest digest) throws IOException {
         List<Observacion> observaciones = new ArrayList<>();
         InputStream entrada = new SaltosValidosInputStream(Files.newInputStream(archivo));
+        if (digest != null) {
+            entrada = new DigestInputStream(entrada, digest);
+        }
         var decodificador = StandardCharsets.UTF_8.newDecoder()
                 .onMalformedInput(CodingErrorAction.REPORT)
                 .onUnmappableCharacter(CodingErrorAction.REPORT);
